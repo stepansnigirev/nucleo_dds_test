@@ -57,7 +57,7 @@ extern "C" {
 // switch (U11) configuration - 0 for V1, 1 for V2
 #define INIT_SWITCH_VALUE 0
 // refclk LED and oscillator power
-#define INIT_REF_LEF 0
+#define INIT_REF_LED 0
 
 /* USER CODE END EC */
 

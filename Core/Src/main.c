@@ -164,7 +164,7 @@ int main(void)
 	  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_SET);
   }
   // refclk LED and oscillator power setup
-  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, INIT_REF_LEF);
+  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, INIT_REF_LED);
   // dds setup
   DDS_Init(INIT_PLL, INIT_DIV, INIT_REFCLK);
   // generate single frequency signal

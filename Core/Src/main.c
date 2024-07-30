@@ -90,7 +90,6 @@ void SPI_Transmit(uint8_t *strBuffer, int nums, int pause)
 void GPIO_WritePin(GPIO_TypeDef *port, int pin, int mode)
 {
 #if DEBUG_LOG
-  //digitalWrite(pin, mode);
 	char s[200] = "";
 	sprintf(s, "Pin %d set to %d", pin, mode);
 	Serial_println(s);
@@ -156,8 +155,20 @@ int main(void)
   MX_ADC3_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  // switch setup
+  if(INIT_SWITCH_VALUE){
+	  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_RESET);
+	  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_SET);
+  }else{
+	  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_RESET);
+	  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_SET);
+  }
+  // refclk LED and oscillator power setup
+  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, INIT_REF_LEF);
+  // dds setup
   DDS_Init(INIT_PLL, INIT_DIV, INIT_REFCLK);
-  SingleProfileFreqOut(INIT_M * 1000000L + INIT_K * 1000L + INIT_H, INIT_A * -1);
+  // generate single frequency signal
+  SingleProfileFreqOut(INIT_FREQUENCY, INIT_A * -1);
 
   /* USER CODE END 2 */
 
@@ -566,7 +577,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_11
@@ -617,8 +628,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  /*Configure GPIO pin : PA0 PA1 PA2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

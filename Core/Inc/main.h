@@ -43,17 +43,21 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
 
+/********************* DDS PARAMETERS ******************/
+
 // DDS init params
 #define INIT_PLL false
 #define INIT_DIV 0
 #define INIT_REFCLK 1000000000
 
 // single frequency value 100 MHz
-#define INIT_M 100
-#define INIT_K 0
-#define INIT_H 0
-// max amplitude
+#define INIT_FREQUENCY 100000000L
+// amplitude in dbm?
 #define INIT_A 0
+// switch (U11) configuration - 0 for V1, 1 for V2
+#define INIT_SWITCH_VALUE 0
+// refclk LED and oscillator power
+#define INIT_REF_LEF 0
 
 /* USER CODE END EC */
 

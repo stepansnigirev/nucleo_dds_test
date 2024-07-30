@@ -764,8 +764,8 @@ void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint1
    strBuffer[0] = Single_Tone_Profile_0; //Num_Prof; // Single_Tone_Profile_#;
 
    //ASF  - Amplitude 14bit 0...16127
-   strBuffer[1] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0) >> 8;     
-   strBuffer[2] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);       
+   strBuffer[1] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0) >> 8;
+   strBuffer[2] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);
              
    strBuffer[3] = 0; //0xFF;
    strBuffer[4] = 0; //0xFF;
@@ -777,7 +777,7 @@ void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint1
 
    SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
    GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-   DDS_UPDATE(); 
+   DDS_UPDATE();
 
     GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
     GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);

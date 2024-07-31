@@ -21,15 +21,15 @@
 #include "stm32f4xx_hal.h"
 
 // switch pins - switches between ext clock and oscillator
-#define DDS_V1_GPIO_PORT		GPIOA
-#define DDS_V1_PIN				GPIO_PIN_1
+#define DDS_V1_GPIO_PORT		GPIOC
+#define DDS_V1_PIN				GPIO_PIN_0
 
 #define DDS_V2_GPIO_PORT		GPIOA
-#define DDS_V2_PIN				GPIO_PIN_0
+#define DDS_V2_PIN				GPIO_PIN_3
 
 // refclk led and oscillator power
-#define DDS_REF_LED_GPIO_PORT	GPIOA
-#define DDS_REF_LED_PIN			GPIO_PIN_2
+#define DDS_REF_LED_GPIO_PORT	GPIOC
+#define DDS_REF_LED_PIN			GPIO_PIN_3
 
 //#define F_SYSCLK 1000000000.0 // defualt 1Ghz setting in PLL (used for XO, TCXO, VC-TCXO only)
 

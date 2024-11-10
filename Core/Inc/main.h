@@ -28,7 +28,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
-#include <stdbool.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -72,7 +71,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN EFP */
 void SPI_Transmit(uint8_t *strBuffer, int nums, int pause);
 void GPIO_WritePin(GPIO_TypeDef *port, int pin, int mode);
-
+void process_data(void * payload, uint16_t len);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

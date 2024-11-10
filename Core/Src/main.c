@@ -18,12 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "string.h"
-#include "ad9910.h"
-#include <stdio.h>
+#include "cmsis_os.h"
+#include "lwip.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ad9910.h"
+#include <string.h>
+#include "server.h"
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -44,16 +47,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
-ETH_TxPacketConfig TxConfig;
-ETH_DMADescTypeDef  DMARxDscrTab[ETH_RX_DESC_CNT]; /* Ethernet Rx DMA Descriptors */
-ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT]; /* Ethernet Tx DMA Descriptors */
-
-ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
 ADC_HandleTypeDef hadc3;
-
-ETH_HandleTypeDef heth;
 
 SPI_HandleTypeDef hspi1;
 
@@ -61,12 +55,13 @@ UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
+osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 
 #define DEBUG_LOG 0
 
 void Serial_print(const char * str){
-	// HAL_UART_Transmit(&huart3, (uint8_t*)str, strlen(str), 1000);
+	HAL_UART_Transmit(&huart3, (uint8_t*)str, strlen(str), 1000);
 }
 void Serial_println(const char * str){
 	Serial_print(str);
@@ -102,13 +97,12 @@ void GPIO_WritePin(GPIO_TypeDef *port, int pin, int mode)
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
-static void MX_ADC1_Init(void);
-static void MX_ADC2_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_SPI1_Init(void);
+void StartDefaultTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -147,54 +141,64 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ETH_Init();
-//  MX_USART3_UART_Init();
+  MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
-//  MX_ADC1_Init();
-//  MX_ADC2_Init();
-//  MX_ADC3_Init();
+  MX_ADC3_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  // switch setup
-  if(INIT_SWITCH_VALUE){
-	  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_RESET);
-	  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_SET);
-	  // refclk LED and oscillator power setup
-	  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, GPIO_PIN_RESET);
-  }else{
-	  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_RESET);
-	  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_SET);
-	  // refclk LED and oscillator power setup
-	  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, GPIO_PIN_SET);
-  }
-  HAL_Delay(10);
-  // dds setup
-  DDS_Init(INIT_PLL, INIT_DIV, INIT_REFCLK);
-  // generate single frequency signal
-  SingleProfileFreqOut(INIT_FREQUENCY, INIT_A * -1);
 
   /* USER CODE END 2 */
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 //  char tx_buff[] = "Hello from Nucleo-DDS\r\n";
   while (1)
   {
-	HAL_Delay(500);
-	Serial_print("*");
-
-	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_SET);
-	HAL_Delay(10);
-	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_RESET);
-
-	//	HAL_UART_Transmit(&huart3, (uint8_t*)tx_buff, strlen(tx_buff), 1000);
-		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
-		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
-		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET);
-		HAL_Delay(500);
-		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
-		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
-		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
+//	HAL_Delay(500);
+//	Serial_print("*");
+//
+//	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_SET);
+//	HAL_Delay(10);
+//	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_RESET);
+//
+//	//	HAL_UART_Transmit(&huart3, (uint8_t*)tx_buff, strlen(tx_buff), 1000);
+//		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+//		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+//		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET);
+//		HAL_Delay(500);
+//		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+//		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+//		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
 
 //	HAL_UART_Transmit(&huart3, (uint8_t*)tx_buff, strlen(tx_buff), 1000);
     /* USER CODE END WHILE */
@@ -250,110 +254,6 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief ADC1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC1_Init(void)
-{
-
-  /* USER CODE BEGIN ADC1_Init 0 */
-
-  /* USER CODE END ADC1_Init 0 */
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN ADC1_Init 1 */
-
-  /* USER CODE END ADC1_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC1_Init 2 */
-
-  /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief ADC2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC2_Init(void)
-{
-
-  /* USER CODE BEGIN ADC2_Init 0 */
-
-  /* USER CODE END ADC2_Init 0 */
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN ADC2_Init 1 */
-
-  /* USER CODE END ADC2_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = DISABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  hadc2.Init.DMAContinuousRequests = DISABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_10;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC2_Init 2 */
-
-  /* USER CODE END ADC2_Init 2 */
-
-}
-
-/**
   * @brief ADC3 Initialization Function
   * @param None
   * @retval None
@@ -402,55 +302,6 @@ static void MX_ADC3_Init(void)
   /* USER CODE BEGIN ADC3_Init 2 */
 
   /* USER CODE END ADC3_Init 2 */
-
-}
-
-/**
-  * @brief ETH Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ETH_Init(void)
-{
-
-  /* USER CODE BEGIN ETH_Init 0 */
-
-  /* USER CODE END ETH_Init 0 */
-
-   static uint8_t MACAddr[6];
-
-  /* USER CODE BEGIN ETH_Init 1 */
-
-  /* USER CODE END ETH_Init 1 */
-  heth.Instance = ETH;
-  MACAddr[0] = 0x00;
-  MACAddr[1] = 0x80;
-  MACAddr[2] = 0xE1;
-  MACAddr[3] = 0x00;
-  MACAddr[4] = 0x00;
-  MACAddr[5] = 0x00;
-  heth.Init.MACAddr = &MACAddr[0];
-  heth.Init.MediaInterface = HAL_ETH_RMII_MODE;
-  heth.Init.TxDesc = DMATxDscrTab;
-  heth.Init.RxDesc = DMARxDscrTab;
-  heth.Init.RxBuffLen = 1524;
-
-  /* USER CODE BEGIN MACADDRESS */
-
-  /* USER CODE END MACADDRESS */
-
-  if (HAL_ETH_Init(&heth) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  memset(&TxConfig, 0 , sizeof(ETH_TxPacketConfig));
-  TxConfig.Attributes = ETH_TX_PACKETS_FEATURES_CSUM | ETH_TX_PACKETS_FEATURES_CRCPAD;
-  TxConfig.ChecksumCtrl = ETH_CHECKSUM_IPHDR_PAYLOAD_INSERT_PHDR_CALC;
-  TxConfig.CRCPadCtrl = ETH_CRC_PAD_INSERT;
-  /* USER CODE BEGIN ETH_Init 2 */
-
-  /* USER CODE END ETH_Init 2 */
 
 }
 
@@ -591,10 +442,10 @@ static void MX_GPIO_Init(void)
                           |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0 | GPIO_PIN_3, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_11
@@ -638,15 +489,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC3 PC7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_7 | GPIO_PIN_0;
+  /*Configure GPIO pins : PC0 PC3 PC7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA0 PA1 PA2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
+  /*Configure GPIO pins : PA0 PA3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -698,8 +549,134 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+#define CMDLEN 256
+static char cmd[CMDLEN] = "";
 
+void process_data(void * payload, uint16_t len){
+	if(len+strlen(cmd) < CMDLEN){
+		memcpy(cmd+strlen(cmd), payload, len);
+	}
+	Serial_print(cmd);
+	char * p = strchr(cmd, '\r');
+	if(p!=NULL){
+		p[0] = '\n';
+	}
+	p = strchr(cmd, '\n');
+	if(p!=NULL){
+		Serial_println("new line!");
+		p[0] = 0;
+		unsigned int freq = 0;
+		unsigned int amp = 0;
+		int count = sscanf(cmd, "singletone %u %u", &freq, &amp);
+		char arr[255];
+		sprintf(arr, "%d: SINGLE %d %d", count, freq, amp);
+		Serial_print(arr);
+		memset(cmd, 0, CMDLEN);
+		if(count > 0){
+			if(freq < 500 && freq > 0){
+				SingleProfileFreqOut(freq*1000000, 0);
+			}else{
+				Serial_println("Invalid frequency. Should be between 1 and 500");
+			}
+		}else{
+			Serial_println("Invalid command");
+		}
+	}
+}
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+	memset(cmd, 0, CMDLEN);
+	/* init code for LWIP */
+	MX_LWIP_Init();
+	/* USER CODE BEGIN 5 */
+
+	Serial_println("\r\nHello world!");
+	extern struct netif gnetif;
+	while (ip4_addr_isany_val(*netif_ip4_addr(&gnetif))) {
+	  osDelay(200);
+	}
+	Serial_println(ip4addr_ntoa(netif_ip4_addr(&gnetif)));
+	// switch setup
+	if(INIT_SWITCH_VALUE){
+		  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_RESET);
+		  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_SET);
+		  // refclk LED and oscillator power setup
+		  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, GPIO_PIN_RESET);
+	}else{
+		  GPIO_WritePin(DDS_V1_GPIO_PORT, DDS_V1_PIN, GPIO_PIN_RESET);
+		  GPIO_WritePin(DDS_V2_GPIO_PORT, DDS_V2_PIN, GPIO_PIN_SET);
+		  // refclk LED and oscillator power setup
+		  GPIO_WritePin(DDS_REF_LED_GPIO_PORT, DDS_REF_LED_PIN, GPIO_PIN_SET);
+	}
+	osDelay(10);
+	// dds setup
+	// DDS_Init(INIT_PLL, INIT_DIV, INIT_REFCLK);
+	DDS_Init(true, false, 50000000);
+
+	// single-tone
+	SingleProfileFreqOut(1000000L, INIT_A * -1);
+	// TODO: profiles
+	// TODO: auto frequency sweep with DRG
+	// TODO: DRHOLD
+	// TODO: sweep with DRCTRL
+	// TODO: external io_update
+	// TODO: amplitude modulation with parallel port
+	// TODO: output on/off
+	echo_init();
+
+
+
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(500);
+	Serial_print("*");
+
+//	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_SET);
+//	osDelay(10);
+//	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_RESET);
+
+	//	HAL_UART_Transmit(&huart3, (uint8_t*)tx_buff, strlen(tx_buff), 1000);
+		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET);
+		osDelay(500);
+		GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+		GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+		GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
+  }
+  /* USER CODE END 5 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

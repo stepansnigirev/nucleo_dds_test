@@ -29,69 +29,12 @@ int16_t ClockOffset = 0;
 
 uint32_t DAC_Current;
 
-uint8_t strBuffer[9];//={129, 165, 15, 255};
+uint8_t strBuffer[9];
 
 uint32_t FTW;
 uint32_t *jlob;
 
 extern uint32_t Ref_Clk;
-
-/******************************************************************************
- * Init GPIO for DDS
-******************************************************************************/
-void DDS_GPIO_Init(void)
-{
-//   pinMode(DDS_SPI_SCLK_PIN, OUTPUT);
-//   pinMode(DDS_SPI_SDIO_PIN, OUTPUT);
-//   pinMode(DDS_SPI_SDO_PIN, INPUT);
-//   pinMode(DDS_SPI_CS_PIN, OUTPUT);
-//   pinMode(DDS_IO_UPDATE_PIN, OUTPUT);
-//   pinMode(DDS_IO_RESET_PIN, OUTPUT);
-//   pinMode(DDS_MASTER_RESET_PIN, OUTPUT);
-//   pinMode(DDS_PROFILE_0_PIN, OUTPUT);
-//   pinMode(DDS_PROFILE_1_PIN, OUTPUT);
-//   pinMode(DDS_PROFILE_2_PIN, OUTPUT);
-//   pinMode(DDS_OSK_PIN, OUTPUT);
-//   pinMode(DDS_TxENABLE_PIN, OUTPUT);
-//   pinMode(DDS_F0_PIN, OUTPUT);
-//   pinMode(DDS_F1_PIN, OUTPUT);
-//   pinMode(DDS_DRHOLD_PIN, OUTPUT);
-//   pinMode(DDS_PWR_DWN_PIN, OUTPUT);
-//   pinMode(DDS_DRCTL_PIN, OUTPUT);
-//
-//   pinMode(DDS_DROVER, INPUT);
-//   pinMode(DDS_SYNC_CLK, INPUT);
-//   pinMode(DDS_RAM_SWP_OVR, INPUT);
-//   pinMode(DDS_PLL_LOCK, INPUT);
-//   pinMode(DDS_PDCLK_PIN, INPUT);
-//
-//
-//  /*Configure GPIO pin Output Level */
-//  GPIO_WritePin(DDS_IO_UPDATE_GPIO_PORT, DDS_IO_UPDATE_PIN, GPIO_PIN_RESET);
-//	GPIO_WritePin(DDS_MASTER_RESET_GPIO_PORT, DDS_MASTER_RESET_PIN, GPIO_PIN_RESET);
-//	GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//	GPIO_WritePin(DDS_OSK_GPIO_PORT, DDS_OSK_PIN, GPIO_PIN_RESET);                     // OSK = 0
-//	GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-//	GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-//	GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-//
-//  GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_DRHOLD_PIN, GPIO_PIN_RESET);
-//  GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_DRCTL_PIN, GPIO_PIN_RESET);
-//  GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PWR_DWN_PIN, GPIO_PIN_RESET);
-}
-
-/******************************************************************************
- * Init SPI, 8bit, Master
- * MODE 3, MSB, 
-******************************************************************************/
-void DDS_SPI_Init(void)
-{
-//  SPI.begin(); //
-//  SPI.setDataMode (SPI_MODE0);
-//  SPI.setClockDivider(SPI_CLOCK_DIV8); //16MHZ/8=2MHZ
-//  SPI.setBitOrder(MSBFIRST);
-}
-
 
 /*****************************************************************************************
    Update - data updates from memory
@@ -114,101 +57,29 @@ void DDS_UPDATE(void)
    Num_Prof - Single Tone Mode 0..7
    Amplitude_dB - amplitude in dB from 0 to -84 (only negative values)
 *****************************************************************************************/
-void DDS_Fout (uint32_t *F_OUT, int16_t Amplitude_dB, uint8_t Num_Prof)
+void DDS_Fout (uint32_t F_OUT, int16_t Amplitude_dB, uint8_t Num_Prof)
 {
-   uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
-   FTW = ((uint32_t)(4294967296.0 *((float)*F_OUT / (float)RealDDSCoreClock)));
-   // FTW = round(4294967296.0 *((float)*F_OUT / ((float)RealDDSCoreClock-ClockOffset))); // закомментировано 27.05.2020
+	FTW = FreqToFTW(F_OUT);
+	jlob = & FTW;
 
-   // значение FTW должно быть 4294967296 
-//    float64_t f64F_OUT=f64(*F_OUT);
-//    float64_t f64CoreClock=f64(RealDDSCoreClock);
-//    float64_t TwoPower32=f64(4294967295UL);
-//    float64_t f64FTW;
-//    //float64_t Offset=f64(ClockOffset);
-//    //CoreClock=f64_sub(CoreClock, Offset);
-//    f64FTW=f64_div(TwoPower32, f64CoreClock);
-//    f64FTW=f64_mul(f64FTW, f64F_OUT);
-//   //FTW = 4294967296 * (*F_OUT / (float)tmpCoreClock);
-//   bool a;
-//   uint_fast8_t softfloat_roundingMode;
-//   softfloat_roundingMode=softfloat_round_near_maxMag;
-//   FTW=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-//
-   jlob = & FTW;
-   
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-	 strBuffer[0] = Num_Prof; // Single_Tone_Profile_#;
+	strBuffer[0] = Num_Prof; // Single_Tone_Profile_#;
 
-   //ASF  - Amplitude 14bit 0...16127
-	 strBuffer[1] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0) >> 8;     
-	 strBuffer[2] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);         
-	 strBuffer[3] = 0x00;
-	 strBuffer[4] = 0x00;
+	//ASF  - Amplitude 14bit 0...16127
+	strBuffer[1] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0) >> 8;
+	strBuffer[2] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);
+	strBuffer[3] = 0x00;
+	strBuffer[4] = 0x00;
 
-	 strBuffer[5] = *(((uint8_t*)jlob)+ 3);
-	 strBuffer[6] = *(((uint8_t*)jlob)+ 2);
-	 strBuffer[7] = *(((uint8_t*)jlob)+ 1);
-	 strBuffer[8] = *(((uint8_t*)jlob));
+	strBuffer[5] = *(((uint8_t*)jlob)+ 3);
+	strBuffer[6] = *(((uint8_t*)jlob)+ 2);
+	strBuffer[7] = *(((uint8_t*)jlob)+ 1);
+	strBuffer[8] = *(((uint8_t*)jlob));
 
-   SPI_Transmit((uint8_t*)strBuffer, 9, 1000);
-	 GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-	 
-	 DDS_UPDATE(); 
+	SPI_Transmit((uint8_t*)strBuffer, 9, 1000);
+
+	DDS_UPDATE();
   
-   int Prof=Num_Prof;
-   Prof=Prof-14; // address of 0 profile: 0x0E
-
-   GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-   GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-   GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-//   if (bitRead(Prof, 0)==1) GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_SET);
-//    else GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-//   if (bitRead(Prof, 1)==1) GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_SET);
-//    else GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-//   if (bitRead(Prof, 2)==1) GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_SET);
-//    else GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-
-   DDS_UPDATE(); 
 }	
-
-
-/*****************************************************************************************
-   PrepRegistersToSaveWaveForm - Setup control registers to load wave forms into DDS RAM only for AD9910
- * Step_Rate - the value of M for the register Step_Rate, for the desired sampling rate from RAM (based on uS)
-*****************************************************************************************/
-void PrepRegistersToSaveWaveForm (uint64_t Step_Rate, uint16_t Step)
-{
-//  // Config RAM Playback ***
-//  strBuffer[0] = RAM_Profile_0; // Address reg profile 0
-//  strBuffer[1] = 0x00; // open
-//  strBuffer[2] = highByte((uint16_t)Step_Rate);  // RAM address Step Rate [15:8]  0x03;
-//  strBuffer[3] = lowByte((uint16_t)Step_Rate); //0xFA;  // Step Rate [7:0] ///0x0F   0xE8;
-//
-//  Step=Step-1;  //расчитваем последнюю ячейку памяти под хранение все сгенерированых данных (отнимаем 1 так как ядреса начитнаются с 0)
-//  Step=Step<<6; //значимые биты начинаются только с 6ой позиции (см датащит)
-//
-//  strBuffer[4] = highByte(Step); //0xF9;  // End RAM address [9:2] bits in register 15:8 bit 0x1F 1024   (0xC0 + 0xF9) 0.....999 = 1000
-//  strBuffer[5] = lowByte(Step); //0xC0;  // End RAM address [1:0] bits in register 7:6 bit  0xC0
-//
-//  strBuffer[6] = 0x00;  // Start RAM address [9:2] bits in register 15:8 bit
-//  strBuffer[7] = 0x00;  // Start RAM address [1:0] bits in register 7:6 bit
-//
-//  strBuffer[8] =  Continuous_recirculate; // b100 - Continuous recerculate   No_dwell_high |
-//
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//  SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//
-//  DDS_UPDATE();
-//
-//  //*** Select Profile 0
-//  GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-//  GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-//  GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-//
-//  DDS_UPDATE();
-}
 
 /************************************************************************************************************
  * Функция находит и взвращает такое значение STEP и StepRate при котором значение StepRate было бы целым числом, но при этом значение STEP не превысило бы значение 1000
@@ -231,246 +102,6 @@ void calcBestStepRate(uint16_t *Step, uint64_t *Step_Rate, uint32_t F_mod)
   *Step=(1.0/((*Step_Rate*4)/(float)RealDDSCoreClock))/F_mod;
 }
 
-/*****************************************************************************************
-   SaveAM_WavesToRAM - calculate and store AM waves to RAM
-   Input data:
-   * F_carrier - frequency carrier Hz
-   * F_mod - amplitude modulations Hz, 10Hz Min, 100kHz Max
-   * Depth - depth modulation      0-100%
-   * Amplitude_dB - отрицательное значение амплитуды в dBm (кроме случая когда DAC Current = HI)
-*****************************************************************************************/ 
-void SaveAMWavesToRAM(uint32_t F_carrier, uint32_t F_mod, uint32_t AM_DEPH, int16_t Amplitude_dB)
-{
-//
-//  #define TWO_POWER_32 4294967296.0 //2^32
-//  //#define MAX_AMPLITUDE_VALUE 16383
-//
-//  uint16_t MaxAmplitudeValue=(uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);
-//
-//  uint64_t Step_Rate;
-//  uint16_t Step;
-//  uint16_t n;
-//  double Deg;
-//  double Rad;
-//  double Sin=0;
-//  double DegIncrement; //=360.0/Step;
-//  uint32_t Amplitude_AM=0;
-//  uint32_t FTW_AM=0;
-//  uint8_t aFTW_AM_8_bit[4];
-//
-//  Step=DEFAULT_STEP_VALUE;
-//  Step_Rate=0;
-//
-//  calcBestStepRate(&Step, &Step_Rate, F_mod);
-//
-//  PrepRegistersToSaveWaveForm(Step_Rate, Step);
-//
-//  DegIncrement=360.0/Step;
-//
-//  //*************************************************************************
-//  Deg = 0; // start set deg
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//  uint8_t MemAdr=RAM_Start_Word;
-//  SPI_Transmit( &MemAdr, 1, 1000);
-//
-//  for (n = 0; n < Step; n++)
-//    {
-//     //Rad = Deg * 0.01745; // conversion from degrees to radians RAD=DEG*Pi/180
-//     Rad = Deg * PI/180.0;
-//     Sin = sin(Rad); // Get Sinus
-//     Amplitude_AM = MaxAmplitudeValue - (((MaxAmplitudeValue * (1 + Sin)) / 2) * (AM_DEPH/100.0));
-//     FTW_AM = Amplitude_AM<<18;
-//     aFTW_AM_8_bit[0]=(FTW_AM>>24);
-//     aFTW_AM_8_bit[1]=(FTW_AM>>16);
-//     aFTW_AM_8_bit[2]=(FTW_AM>>8);
-//     aFTW_AM_8_bit[3]=FTW_AM;
-//     SPI_Transmit( aFTW_AM_8_bit, 4, 1000);
-//     Deg = Deg + DegIncrement;
-//    }
-//    GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//    DDS_UPDATE();
-//
-//    PlaybackAMFromRAM(F_carrier);
-}
-
-/*****************************************
- * PlaybackAMFromRAM - проигрывает данные из RAM интерпретируя их как данные для AM (тоесть как частоты)
- * внутри функции должны устанавливаться регистры FTW (значение высчитвается по формуле из датащита), отвечающие за значение несущей частоту (мощнсть в dBm) 
- **********************************************/
-void PlaybackAMFromRAM(uint32_t F_carrier)
-{
-//  //********* Digital Ramp disable*******
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//  strBuffer[0] = CFR2_addr;
-//  strBuffer[1] = Enable_amplitude_scale_from_single_tone_profiles;//1;//0x00;
-//  strBuffer[2] = 0;//SYNC_CLK_enable;// | Read_effective_FTW; // Digital Ramp disable
-//  strBuffer[3] = 0;//PDCLK_enable;
-//  strBuffer[4] = Sync_timing_validation_disable;// | Parallel_data_port_enable;
-//  SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//  DDS_UPDATE();
-//
-//  //*** RAM Enable ***
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//   strBuffer[0] = CFR1_addr;
-//   strBuffer[1] = RAM_Playback_Amplitude | RAM_enable;// | RAM_enable;//0x00; RAM_Playback_Amplitude;//
-//   strBuffer[2] = 0;//Continuous_Profile_0_1; //0;//0x80;//0x00;
-//   strBuffer[3] = 0;//OSK_enable;//Select_auto_OSK;//OSK_enable;// | Select_auto_OSK;//0x00;
-//   strBuffer[4] = SDIO_input_only ;
-//   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//   DDS_UPDATE();
-//
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//   strBuffer[0] = FTW_addr;
-//
-//   //Set Output Frequency for AM modulation
-//   //uint32_t FTW_AM = round((float)TWO_POWER_32 * ((float)F_carrier / (float)DDS_Core_Clock));
-//   uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
-//   float64_t f64F_carrier=f64(F_carrier);
-//   float64_t f64CoreClock=f64(RealDDSCoreClock);
-//   float64_t TwoPower32=f64(4294967295UL);
-//   float64_t f64FTW;
-//   f64FTW=f64_div(TwoPower32, f64CoreClock);
-//   f64FTW=f64_mul(f64FTW, f64F_carrier);
-//   bool a;
-//   uint_fast8_t softfloat_roundingMode;
-//   softfloat_roundingMode=softfloat_round_near_maxMag;
-//   uint32_t FTW_AM=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-//
-//   strBuffer[1]=(FTW_AM>>24);
-//   strBuffer[2]=(FTW_AM>>16);
-//   strBuffer[3]=(FTW_AM>>8);
-//   strBuffer[4]=FTW_AM;
-//
-//   //значение регистра высчитывается по формуле FTW = ((uint32_t)(4294967296.0 *(((double)*F_OUT / Ref_Clk))));
-//   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//
-//   DDS_UPDATE();
-}
-
-/*****************************************************************************************
-   SaveFM_WavesToRAM - calculate and store FM waves to RAM
-   Input data:
-   * F_carrier - frequency carrier Hz
-   * F_mod - frequency modulations Hz
-   * F_dev - frequency deviations Hz
-*****************************************************************************************/  
-void SaveFMWavesToRAM (uint32_t F_carrier, uint32_t F_mod, uint32_t F_dev)
-{
-//  #define TWO_POWER_32 4294967296.0 //2^32
-//
-//  uint64_t Step_Rate;
-//  uint16_t Step;
-//  uint16_t n;
-//  double Deg;
-//  double Rad;
-//  double Sin=0;
-//  double DegIncrement=0;
-//  uint32_t FREQ_FM=0;
-//  uint32_t FTW_FM=0;
-//  uint8_t FTW_FM_8_bit[4];
-//
-//  Step=DEFAULT_STEP_VALUE;
-//  Step_Rate=0;
-//
-//  calcBestStepRate(&Step, &Step_Rate, F_mod);
-//
-//  PrepRegistersToSaveWaveForm(Step_Rate, Step);
-//
-//  DegIncrement=360.0/Step;
-//  //*************************************************************************
-//
-//  Deg = 0; // start set deg
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//  uint8_t MemAdr=RAM_Start_Word;
-//  SPI_Transmit( &MemAdr, 1, 1000);
-//
-//     uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
-//   float64_t f64FREQ_FM;//=f64(FREQ_FM);
-//   float64_t f64CoreClock=f64(RealDDSCoreClock);
-//   float64_t TwoPower32=f64(4294967295UL);
-//   float64_t f64FTW;
-//   bool a;
-//   uint_fast8_t softfloat_roundingMode;
-//   softfloat_roundingMode=softfloat_round_near_maxMag;
-//
-//  for (n = 0; n < Step; n++)
-//    {
-//     //Rad = Deg * 0.01745; // conversion from degrees to radians RAD=DEG*Pi/180
-//     Rad = Deg * PI/180.0;
-//     Sin = sin(Rad); // Get Sinus
-//     FREQ_FM = F_carrier + (F_dev * Sin);
-//     //FTW_FM = round((double)TWO_POWER_32 * ((double)FREQ_FM / (double)DDS_Core_Clock));
-//
-//    f64FREQ_FM=f64(FREQ_FM);
-//   f64FTW=f64_div(TwoPower32, f64CoreClock);
-//   f64FTW=f64_mul(f64FTW, f64FREQ_FM);
-//
-//   FTW_FM=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-//
-//     FTW_FM_8_bit[0]=(FTW_FM>>24);
-//     FTW_FM_8_bit[1]=(FTW_FM>>16);
-//     FTW_FM_8_bit[2]=(FTW_FM>>8);
-//     FTW_FM_8_bit[3]=FTW_FM;
-//     SPI_Transmit( FTW_FM_8_bit, 4, 1000);
-//     Deg = Deg + DegIncrement;
-//    }
-//    GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//    DDS_UPDATE();
-//    PlaybackFMFromRAM(A*-1);
-}
-
-/*************************************************
- * PlaybackFMFromRAM - проигрывает данные из RAM интерпретируя их как данные для FM (тоесть как частоты)
- * внутри функции должны устанавливаться регистры ASF (значение высчитвается по формуле из датащита), отвечающие за амплитуду (мощнсть в dBm) 
- * Amplitude_dB - должна передаваться как отрицательное число (за исключением когда активирована функция DAC Current - HI)
- **********************************************/
-void PlaybackFMFromRAM(int16_t Amplitude_dB)
-{
-//  //********* Digital Ramp disable*******
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//  strBuffer[0] = CFR2_addr;
-//  strBuffer[1] = Enable_amplitude_scale_from_single_tone_profiles;//1;//0x00;
-//  strBuffer[2] = 0;//SYNC_CLK_enable;// | Read_effective_FTW; // Digital Ramp disable
-//  strBuffer[3] = 0;//PDCLK_enable;
-//  strBuffer[4] = Sync_timing_validation_disable;// | Parallel_data_port_enable;
-//  SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//  DDS_UPDATE();
-//
-//  //*** RAM Enable ***
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//   strBuffer[0] = CFR1_addr;
-//   strBuffer[1] = RAM_Playback_Frequency | RAM_enable;// | RAM_enable;//0x00; RAM_Playback_Amplitude;//
-//   strBuffer[2] = 0;//Continuous_Profile_0_1; //0;//0x80;//0x00;
-//   strBuffer[3] = OSK_enable;// | Select_auto_OSK;//0x00;
-//   strBuffer[4] = SDIO_input_only ;
-//   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//
-//   DDS_UPDATE();
-//
-//   uint16_t AmplitudeRegistersValue=(uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);
-//
-//   //AmplitudeRegistersValue=AmplitudeRegistersValue<<2;
-//
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-//   strBuffer[0] = ASF_addr;
-//   strBuffer[1] = 0x00;
-//   strBuffer[2] = 0x00;
-//   strBuffer[3] = AmplitudeRegistersValue >> 6; //15:8
-//   AmplitudeRegistersValue = AmplitudeRegistersValue << 2;
-//   AmplitudeRegistersValue = AmplitudeRegistersValue & B11111100;
-//   strBuffer[4] = AmplitudeRegistersValue; //7:2
-//
-//   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-//   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-//
-//   DDS_UPDATE();
-}
-
 
 
 /*****************************************************************************
@@ -487,8 +118,6 @@ void PlaybackFMFromRAM(int16_t Amplitude_dB)
 *****************************************************************************/
 void DDS_Init(bool PLL, bool Divider, uint32_t Ref_Clk)
  {
-   DDS_GPIO_Init();
-   
    // It is very important for DDS AD9910 to set the initial port states
    GPIO_WritePin(DDS_MASTER_RESET_GPIO_PORT, DDS_MASTER_RESET_PIN, GPIO_PIN_SET);   // RESET = 1
    HAL_Delay(10);
@@ -500,35 +129,25 @@ void DDS_Init(bool PLL, bool Divider, uint32_t Ref_Clk)
    GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
    GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
    
-   DDS_SPI_Init();
-   
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
+
    strBuffer[0] = CFR1_addr;
    strBuffer[1] = 0;// RAM_enable;//RAM_Playback_Amplitude;// | RAM_enable;//0x00; 
    strBuffer[2] = 0;//Inverse_sinc_filter_enable;//0; //Continuous_Profile_0_1; //0;//0x80;//0x00;
    strBuffer[3] = 0; //OSK_enable | Select_auto_OSK;//0x00;
    strBuffer[4] = SDIO_input_only ;
    SPI_Transmit((uint8_t*)strBuffer, 5, 1000);
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-   
-   DDS_UPDATE();
-   
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
+
    strBuffer[0] = CFR2_addr;
    strBuffer[1] = Enable_amplitude_scale_from_single_tone_profiles;//1;//0x00;
    strBuffer[2] = 0;//SYNC_CLK_enable;// | Read_effective_FTW;
-   strBuffer[3] = 0;//0x08;//PDCLK_enable;
-   strBuffer[4] = Sync_timing_validation_disable;// | Parallel_data_port_enable;
+   strBuffer[3] = PDCLK_enable; // 0;//0x08;//PDCLK_enable;
+   strBuffer[4] = Sync_timing_validation_disable | Parallel_data_port_enable | Data_assembler_hold_last_value;
    SPI_Transmit((uint8_t*)strBuffer, 5, 1000);
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
    
-   DDS_UPDATE();
-
   switch (PLL)
   {
     case false:
       /******************* External Oscillator 60 - 1000Mhz (Overclock up to 1500Mhz) ***************/ 
-      GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
       strBuffer[0] = CFR3_addr;
       strBuffer[1] = 0;//DRV0_REFCLK_OUT_High_output_current;//
       strBuffer[2] = 0;
@@ -536,13 +155,10 @@ void DDS_Init(bool PLL, bool Divider, uint32_t Ref_Clk)
         else strBuffer[3] = REFCLK_input_divider_ResetB | REFCLK_input_divider_bypass;
       strBuffer[4] = 0; // SYSCLK= REF_CLK * N
       SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-      GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-      DDS_UPDATE();
       //**************************
     break;
     case true:
       /******************* External Oscillator TCXO 3.2 - 60 MHz ***********************************************/ 
-      GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
       strBuffer[0] = CFR3_addr;
       if (DDS_Core_Clock<=1000000000) strBuffer[1] = VCO3;
         else strBuffer[1] = VCO5;  // | DRV0_REFCLK_OUT_High_output_current;
@@ -552,13 +168,10 @@ void DDS_Init(bool PLL, bool Divider, uint32_t Ref_Clk)
       strBuffer[4]=round((float)DDS_Core_Clock/(float)Ref_Clk)*2; // multiplier for PLL
       //strBuffer[4]=round(((float)DDS_Core_Clock-ClockOffset)/(float)Ref_Clk)*2; // multiplier for PLL
       SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-      GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-      DDS_UPDATE();
     /**********************/
     break;
   }
    
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
    strBuffer[0] = FSC_addr;
    strBuffer[1] = 0;
    strBuffer[2] = 0;
@@ -566,61 +179,30 @@ void DDS_Init(bool PLL, bool Divider, uint32_t Ref_Clk)
    if (DACCurrentIndex==0) strBuffer[4] = 0x7F; //DAC current Normal
     else strBuffer[4] = 0xFF;// Max carrent 255 = 31mA //DAC current HI
    SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
    
-   DDS_UPDATE();
-   
-   /*GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-   strBuffer[0] = 0x0E; //profile 0 address
-   strBuffer[1] = 0x3F;
-   strBuffer[2] = 0xFF;
-   strBuffer[3] = 0x00;
-   strBuffer[4] = 0x00;
-   
-   strBuffer[5] = 0x19;
-   strBuffer[6] = 0x99;
-   strBuffer[7] = 0x9A;
-   strBuffer[8] = 0x6C; // 100mhz
-   SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-   
-   DDS_UPDATE(); 
-   //while (1);*/
 }                
 
 /*************************************************************************
  * Freq Out, freq_output in Hz 0 HZ - 450MHZ, 
  * amplitude_dB_output - from 0 to -84 (negative)
  ************************************************************************/
-void SingleProfileFreqOut(uint32_t freq_output, int16_t amplitude_dB_output) 
+void SingleProfileFreqOut(uint32_t freq_output, int16_t amplitude_dB_output, uint8_t profile)
 {
   //*** RAM Disable ***
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = CFR1_addr;
   strBuffer[1] = 0; // RAM Disable
   strBuffer[2] = 0;//
   strBuffer[3] = 0;//OSK Disable
   strBuffer[4] = SDIO_input_only ;
   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
-  
-  //********* Digital Ramp disable*******
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = CFR2_addr;
   strBuffer[1] = Enable_amplitude_scale_from_single_tone_profiles;//1;//0x00;
   strBuffer[2] = 0;//SYNC_CLK_enable;// | Read_effective_FTW; // Digital Ramp disable
-  strBuffer[3] = 0;//PDCLK_enable;
-  strBuffer[4] = Sync_timing_validation_disable;// | Parallel_data_port_enable;
+  strBuffer[3] = PDCLK_enable; // 0;//0x08;//PDCLK_enable;
+  strBuffer[4] = Sync_timing_validation_disable | Parallel_data_port_enable | Data_assembler_hold_last_value;
   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
   
-  DDS_Fout(&freq_output, amplitude_dB_output, Single_Tone_Profile_0);
- 
-  /*GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_SET);
-  GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-  GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_SET);*/
+  DDS_Fout(freq_output, amplitude_dB_output, Single_Tone_Profile_0+profile);
 }
 
 
@@ -634,171 +216,21 @@ uint32_t CalcRealDDSCoreClockFromOffset()
   return rRCC;
 }
 
-/*
-void SaveDTMFToRAM (uint32_t Tone1, uint32_t Tone2, uint32_t F_dev) //do not use
-{
-  //#define TWO_POWER_32 4294967296.0 //2^32
-
-  //Tone1=100001000;
-  Tone1=100001000;
-  Tone2=100003000;
-  //F_mod=10000;
-  
-  uint64_t Step_Rate;
-  uint16_t Step;
-  uint32_t FTW_FM=0;
-  uint8_t FTW_FM_8_bit[4];
-
-  Step=2;
-  Step_Rate=65535;
-
-  //calcBestStepRate(&Step, &Step_Rate, 10000);
-  Serial.println("******SSB DTMF***");
-  Serial.print("Step=");
-  Serial.println(Step);
-
-  Serial.print("Step_Rate=");
-  Serial.println((uint32_t)Step_Rate);
-
-  PrepRegistersToSaveWaveForm(Step_Rate, Step);
-
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-  uint8_t MemAdr=RAM_Start_Word;
-  SPI_Transmit( &MemAdr, 1, 1000);
-
-    uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
-   float64_t f64Tone1;//=f64(FREQ_FM);
-   float64_t f64Tone2;
-   float64_t f64CoreClock=f64(RealDDSCoreClock);
-   float64_t TwoPower32=f64(4294967295UL);
-   float64_t f64FTW;
-   bool a;
-   uint_fast8_t softfloat_roundingMode;
-   softfloat_roundingMode=softfloat_round_near_maxMag;
-  
-       
-   f64Tone1=f64(Tone1);
-   f64FTW=f64_div(TwoPower32, f64CoreClock);
-   f64FTW=f64_mul(f64FTW, f64Tone1);
-   
-   FTW_FM=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-
-   Serial.print("FTW for tone 1=");
-   Serial.println(FTW_FM);
-     
-     FTW_FM_8_bit[0]=(FTW_FM>>24);
-     FTW_FM_8_bit[1]=(FTW_FM>>16);
-     FTW_FM_8_bit[2]=(FTW_FM>>8);
-     FTW_FM_8_bit[3]=FTW_FM;
-     SPI_Transmit( FTW_FM_8_bit, 4, 1000);
-
-   f64Tone2=f64(Tone2);
-   f64FTW=f64_div(TwoPower32, f64CoreClock);
-   f64FTW=f64_mul(f64FTW, f64Tone2);
-   
-   FTW_FM=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-   Serial.print("FTW for tone 2=");
-   Serial.println(FTW_FM);
-     
-     FTW_FM_8_bit[0]=(FTW_FM>>24);
-     FTW_FM_8_bit[1]=(FTW_FM>>16);
-     FTW_FM_8_bit[2]=(FTW_FM>>8);
-     FTW_FM_8_bit[3]=FTW_FM;
-     SPI_Transmit( FTW_FM_8_bit, 4, 1000);
-
-    GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-    DDS_UPDATE();
-    
-     Serial.println("FM wave saved to RAM...");
-    PlaybackFMFromRAM(A*-1);
-}*/
-
-/*
-void SingleProfileSSBDTMF(uint32_t freq_output, int16_t amplitude_dB_output) //do not use!!!
-{
-  #if DBG==1
-  Serial.println(F("****SingleProfileFreqOut***"));
-  Serial.print(F("freq_output="));
-  Serial.println(freq_output);
-  Serial.print(F("amplitude_dB_output="));
-  Serial.println(amplitude_dB_output);
-  #endif
-
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-  strBuffer[0] = CFR1_addr;
-  strBuffer[1] = 0; // RAM Disable
-  strBuffer[2] = 0;//
-  strBuffer[3] = 0;//OSK Disable
-  strBuffer[4] = SDIO_input_only ;
-  SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
-
-  freq_output=100001000;
-  DDS_Fout(&freq_output, amplitude_dB_output, Single_Tone_Profile_0);
-  freq_output=100003000;
-  DDS_Fout(&freq_output, amplitude_dB_output, Single_Tone_Profile_1);
-
-  while (1)
-  {
-    GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-    //GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-    //GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-    delay(100);
-    GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_SET);
-    //GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-    //GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-    delay(100);
-  }
-}
-*/
-
 /*************************************************************************************
  * Digital Ramp Generator Enable
  **********************************************************************************/
-void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint16_t StepRate)
+void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint16_t StepRate, uint8_t autoclear)
 {
 
-  int Amplitude_dB=0;
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
-   strBuffer[0] = Single_Tone_Profile_0; //Num_Prof; // Single_Tone_Profile_#;
-
-   //ASF  - Amplitude 14bit 0...16127
-   strBuffer[1] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0) >> 8;
-   strBuffer[2] =  (uint16_t)powf(10,(Amplitude_dB+84.288)/20.0);
-             
-   strBuffer[3] = 0; //0xFF;
-   strBuffer[4] = 0; //0xFF;
-   
-   strBuffer[5] = 0; //0xFF;
-   strBuffer[6] = 0; //0xFF;
-   strBuffer[7] = 0; //0xFF;
-   strBuffer[8] = 0; //0xFF;
-
-   SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
-   GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-   DDS_UPDATE();
-
-    GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, GPIO_PIN_RESET);
-    GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, GPIO_PIN_RESET);
-    GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, GPIO_PIN_RESET);
-   
-////
-  
   //*** RAM Disable
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = CFR1_addr;
   strBuffer[1] = 0;// RAM_enable; 
   strBuffer[2] = 0; 
   strBuffer[3] = 0;//OSK Disable // Autoclear_digital_ramp_accumulator;
-  strBuffer[4] = SDIO_input_only ;
+  strBuffer[4] = SDIO_input_only;
   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
-
 
 //*** digital Ramp LIMITS enable
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = Digital_Ramp_Limit;
   
   strBuffer[1] = FTWEnd>>24; // upper limit
@@ -812,11 +244,8 @@ void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint1
   strBuffer[8] = FTWStart;     // lower limit
   
   SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
 
   //*** digital  Ramp Step Size enable
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = Digital_Ramp_Step_Size;
   
   //**** Dicrement ****
@@ -832,11 +261,8 @@ void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint1
   strBuffer[8] = FTWStepSize; 
   
   SPI_Transmit( (uint8_t*)strBuffer, 9, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
 
   //*** digital  Ramp Step Rate enable
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
   strBuffer[0] = Digital_Ramp_Rate;
   
   strBuffer[1] = StepRate>>8; // Negative Slope Rate
@@ -845,72 +271,71 @@ void DigitalRamp(uint32_t FTWStart, uint32_t FTWEnd, uint32_t FTWStepSize, uint1
   strBuffer[4] = StepRate; // Positive Slope Rate
   
   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
 
- //*** digital Ramp Generator enable
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
+  //*** digital Ramp Generator enable
   strBuffer[0] = CFR2_addr;
-  strBuffer[1] = 0; 
-  strBuffer[2] = Digital_Ramp_Destination_Frequency | Digital_ramp_enable | Digital_ramp_no_dwell_high | Digital_ramp_no_dwell_low; // Digital_ramp_no_dwell_high - не останавливатся вверху, Digital_ramp_no_dwell_low - не остановливатся внизу
-  strBuffer[3] = 0;//
-  strBuffer[4] = 0;// ;
+  strBuffer[1] = 0;
+  if(autoclear){
+	  strBuffer[2] = Digital_Ramp_Destination_Frequency | Digital_ramp_enable | Digital_ramp_no_dwell_high | Digital_ramp_no_dwell_low;
+  }else{
+	  strBuffer[2] = Digital_Ramp_Destination_Frequency | Digital_ramp_enable;
+  }
+  strBuffer[3] = PDCLK_enable; // 0;//0x08;//PDCLK_enable;
+  strBuffer[4] = Sync_timing_validation_disable | Parallel_data_port_enable | Data_assembler_hold_last_value;
   SPI_Transmit( (uint8_t*)strBuffer, 5, 1000);
-  GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
-  DDS_UPDATE();
-//  pinMode(DDS_DRCTL_PIN, OUTPUT);
-//  digitalWrite(DDS_DRCTL_PIN, HIGH);
-}
 
+  DDS_UPDATE();
+}
 
 //SweepTimeFormat: 0 - Seconds, 1 - Milliseconds (mS), 2 - MicroSeconds (uS), 3 - NanoSeconds
-void Sweep(uint32_t StartSweepFreq, uint32_t StopSweepFreq, uint16_t SweepTime, uint8_t SweepTimeFormat)
+void Sweep(uint32_t StartSweepFreq, uint32_t StopSweepFreq, uint16_t SweepTime, uint8_t autoclear)
 {
-//  //float64_t NanoSweepTime=f64((uint32_t)SweepTime); //F64_div, f64_mul
-//  uint64_t NanoSweepTime;
-//  uint64_t CaluclatedNanoSweepTime;
-//  uint32_t FTWStart=FreqToFTW(StartSweepFreq);
-//  uint32_t FTWEnd=FreqToFTW(StopSweepFreq);
-//  uint32_t DeltaFTW=FTWEnd-FTWStart;
-//  uint32_t FTWStepSize=1;
-//  uint16_t StepRate=1;
-//
-//  if (SweepTimeFormat==0) NanoSweepTime=SweepTime*1E9;
-//    else if (SweepTimeFormat==1) NanoSweepTime=SweepTime*1E6;
-//      else if (SweepTimeFormat==2) NanoSweepTime=SweepTime*1E3;
-//
-//  float GHZ_CoreClock=DDS_Core_Clock/1E9; //незабыть заменит на realDDSCoreClock
-//  CaluclatedNanoSweepTime=(4/GHZ_CoreClock*DeltaFTW*FTWStepSize);
-//
-//  if (CaluclatedNanoSweepTime<NanoSweepTime)
-//  {
-//    uint32_t StepRateMultiplier=round(NanoSweepTime/float(CaluclatedNanoSweepTime));
-//    if (StepRateMultiplier<=0xFFFF) StepRate=StepRate*StepRateMultiplier;
-//      else StepRate=0xFFFF;
-//  }
-//  if (CaluclatedNanoSweepTime>NanoSweepTime)
-//  {
-//    uint32_t FTWMultiplier=round(CaluclatedNanoSweepTime/float(NanoSweepTime));
-//    FTWStepSize=FTWStepSize*FTWMultiplier;
-//  }
-//  DigitalRamp(FTWStart, FTWEnd, FTWStepSize, StepRate);
+  //float64_t NanoSweepTime=f64((uint32_t)SweepTime); //F64_div, f64_mul
+  uint64_t NanoSweepTime = SweepTime;
+  uint64_t CaluclatedNanoSweepTime;
+  uint32_t FTWStart=FreqToFTW(StartSweepFreq);
+  uint32_t FTWEnd=FreqToFTW(StopSweepFreq);
+  uint32_t DeltaFTW=FTWEnd-FTWStart;
+  uint32_t FTWStepSize=1;
+  uint16_t StepRate=1;
+
+  NanoSweepTime=SweepTime*1E6;
+
+  float GHZ_CoreClock=DDS_Core_Clock/1E9; //незабыть заменит на realDDSCoreClock
+  CaluclatedNanoSweepTime=(4/GHZ_CoreClock*DeltaFTW*FTWStepSize);
+
+  if (CaluclatedNanoSweepTime<NanoSweepTime)
+  {
+    uint32_t StepRateMultiplier=(uint32_t)round((float)NanoSweepTime/(float)CaluclatedNanoSweepTime);
+    if (StepRateMultiplier<=0xFFFF) StepRate=StepRate*StepRateMultiplier;
+      else StepRate=0xFFFF;
+  }
+  if (CaluclatedNanoSweepTime>NanoSweepTime)
+  {
+    uint32_t FTWMultiplier=(uint32_t)round((float)CaluclatedNanoSweepTime/(float)NanoSweepTime);
+    FTWStepSize=FTWStepSize*FTWMultiplier;
+  }
+  DigitalRamp(FTWStart, FTWEnd, FTWStepSize, StepRate, autoclear);
 }
 
-uint32_t FreqToFTW(uint32_t Freq)
-{
-//    uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
-//    bool a;
-    
-//    float64_t f64Freq=f64(Freq);
-//    float64_t f64CoreClock=f64(RealDDSCoreClock);
-//    float64_t TwoPower32=f64(4294967295UL);
-//    float64_t f64FTW;
-//
-//    f64FTW=f64_div(TwoPower32, f64CoreClock);
-//    f64FTW=f64_mul(f64FTW, f64Freq);
-//
-//    uint_fast8_t softfloat_roundingMode;
-//    softfloat_roundingMode=softfloat_round_near_maxMag;
-//    return f64_to_ui32(f64FTW, softfloat_roundingMode, a);
-    return 0;
+uint32_t FreqToFTW(uint32_t freq){
+	uint32_t RealDDSCoreClock=CalcRealDDSCoreClockFromOffset();
+	return (uint32_t)((4294967296.0 *((float)freq / (float)RealDDSCoreClock)));
+	   // FTW = round(4294967296.0 *((float)*F_OUT / ((float)RealDDSCoreClock-ClockOffset))); // закомментировано 27.05.2020
+
+	   // значение FTW должно быть 4294967296
+	//    float64_t f64F_OUT=f64(*F_OUT);
+	//    float64_t f64CoreClock=f64(RealDDSCoreClock);
+	//    float64_t TwoPower32=f64(4294967295UL);
+	//    float64_t f64FTW;
+	//    //float64_t Offset=f64(ClockOffset);
+	//    //CoreClock=f64_sub(CoreClock, Offset);
+	//    f64FTW=f64_div(TwoPower32, f64CoreClock);
+	//    f64FTW=f64_mul(f64FTW, f64F_OUT);
+	//   //FTW = 4294967296 * (*F_OUT / (float)tmpCoreClock);
+	//   bool a;
+	//   uint_fast8_t softfloat_roundingMode;
+	//   softfloat_roundingMode=softfloat_round_near_maxMag;
+	//   FTW=f64_to_ui32(f64FTW, softfloat_roundingMode, a);
+	//
 }

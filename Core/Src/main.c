@@ -79,7 +79,9 @@ void SPI_Transmit(uint8_t *strBuffer, int nums, int pause)
 	}
 	Serial_println(" ");
 #endif
+	GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi1, strBuffer, nums, pause);
+	GPIO_WritePin(DDS_SPI_CS_GPIO_PORT, DDS_SPI_CS_PIN, GPIO_PIN_SET);
 }
 
 void GPIO_WritePin(GPIO_TypeDef *port, int pin, int mode)
@@ -438,7 +440,7 @@ static void MX_GPIO_Init(void)
                           |GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_0, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7
+  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_7|GPIO_PIN_8
                           |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -480,9 +482,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USER_Btn_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PF2 PF4 PF6 PF7
+  /*Configure GPIO pins : PF2 PF4 PF7 PF8
                            PF9 PF10 PF14 PF15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_7|GPIO_PIN_8
                           |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_14|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -552,6 +554,155 @@ static void MX_GPIO_Init(void)
 #define CMDLEN 256
 static char cmd[CMDLEN] = "";
 
+int exec_profile(const char * cmd){
+	unsigned int profile = 0;
+	uint32_t freq = 0;
+	uint32_t amp = 0;
+	int count = sscanf(cmd, "%u %lu %lu", &profile, &freq, &amp);
+	char arr[255];
+	sprintf(arr, "%d PROFILE %d <- %lu %lu", count, profile, freq, amp);
+	Serial_print(arr);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(freq > 500){
+		Serial_println("Invalid frequency. Should be between 1 and 500");
+		return -2;
+	}
+	if(profile > 7){
+		Serial_println("Invalid profile");
+		return -3;
+	}
+	SingleProfileFreqOut(freq*1000000, 0, profile);
+	return 0;
+}
+
+int exec_setprofile(const char * cmd){
+	unsigned int profile = 0;
+	int count = sscanf(cmd, "%u", &profile);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(profile > 7){
+		Serial_println("Invalid profile");
+		return -3;
+	}
+	GPIO_WritePin(DDS_PROFILE_0_GPIO_PORT, DDS_PROFILE_0_PIN, profile&1);
+	GPIO_WritePin(DDS_PROFILE_1_GPIO_PORT, DDS_PROFILE_1_PIN, (profile>>1)&1);
+	GPIO_WritePin(DDS_PROFILE_2_GPIO_PORT, DDS_PROFILE_2_PIN, (profile>>2)&1);
+	return 0;
+}
+
+int exec_sweep(const char * cmd){
+	uint32_t start;
+	uint32_t stop;
+	uint32_t period_ms;
+	int autoclear = 0;
+	int count = sscanf(cmd, "%lu %lu %lu %d", &start, &stop, &period_ms, &autoclear);
+	if(count < 3){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(count < 4){
+		autoclear = 1;
+	}
+	Sweep(start*1000000, stop*1000000, period_ms, (uint8_t)autoclear);
+	return 0;
+}
+
+int exec_drhold(const char * cmd){
+	unsigned int value = 0;
+	int count = sscanf(cmd, "%u", &value);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(value > 1){
+		Serial_println("Invalid value");
+		return -3;
+	}
+	GPIO_WritePin(DDS_DRHOLD_GPIO_PORT, DDS_DRHOLD_PIN, value&1);
+	return 0;
+}
+
+int exec_drctrl(const char * cmd){
+	unsigned int value = 0;
+	int count = sscanf(cmd, "%u", &value);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(value > 1){
+		Serial_println("Invalid value");
+		return -3;
+	}
+	GPIO_WritePin(DDS_DRCTL_GPIO_PORT, DDS_DRCTL_PIN, value&1);
+	return 0;
+}
+
+int exec_pwr(const char * cmd){
+	unsigned int value = 0;
+	int count = sscanf(cmd, "%u", &value);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(value > 1){
+		Serial_println("Invalid value");
+		return -3;
+	}
+	GPIO_WritePin(DDS_PWR_DWN_GPIO_PORT, DDS_PWR_DWN_PIN, !(value&1));
+	return 0;
+}
+
+int exec_txen(const char * cmd){
+	unsigned int value = 0;
+	int count = sscanf(cmd, "%u", &value);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(value > 1){
+		Serial_println("Invalid value");
+		return -3;
+	}
+	GPIO_WritePin(DDS_TxENABLE_GPIO_PORT, DDS_TxENABLE_PIN, value&1);
+	return 0;
+}
+
+int exec_amplitude(const char * cmd){
+	unsigned int value = 0;
+	int count = sscanf(cmd, "%u", &value);
+	if(count < 1){
+		Serial_println("Error parsing command");
+		return -1;
+	}
+	if(value >= (1<<14)){
+		Serial_println("Invalid value");
+		return -3;
+	}
+	GPIO_WritePin(DDS_D2_GPIO_PORT, DDS_D2_PIN, value&1);
+	GPIO_WritePin(DDS_D3_GPIO_PORT, DDS_D3_PIN, (value>>1)&1);
+	GPIO_WritePin(DDS_D4_GPIO_PORT, DDS_D4_PIN, (value>>2)&1);
+	GPIO_WritePin(DDS_D5_GPIO_PORT, DDS_D5_PIN, (value>>3)&1);
+	GPIO_WritePin(DDS_D6_GPIO_PORT, DDS_D6_PIN, (value>>4)&1);
+	GPIO_WritePin(DDS_D7_GPIO_PORT, DDS_D7_PIN, (value>>5)&1);
+	GPIO_WritePin(DDS_D8_GPIO_PORT, DDS_D8_PIN, (value>>6)&1);
+	GPIO_WritePin(DDS_D9_GPIO_PORT, DDS_D9_PIN, (value>>7)&1);
+	GPIO_WritePin(DDS_D10_GPIO_PORT, DDS_D10_PIN, (value>>8)&1);
+	GPIO_WritePin(DDS_D11_GPIO_PORT, DDS_D11_PIN, (value>>9)&1);
+	GPIO_WritePin(DDS_D12_GPIO_PORT, DDS_D12_PIN, (value>>10)&1);
+	GPIO_WritePin(DDS_D13_GPIO_PORT, DDS_D13_PIN, (value>>11)&1);
+	GPIO_WritePin(DDS_D14_GPIO_PORT, DDS_D14_PIN, (value>>12)&1);
+	GPIO_WritePin(DDS_D15_GPIO_PORT, DDS_D15_PIN, (value>>13)&1);
+	GPIO_WritePin(DDS_TxENABLE_GPIO_PORT, DDS_TxENABLE_PIN, 1);
+//	HAL_Delay(100);
+//	GPIO_WritePin(DDS_TxENABLE_GPIO_PORT, DDS_TxENABLE_PIN, 0);
+	return 0;
+}
+
 void process_data(void * payload, uint16_t len){
 	if(len+strlen(cmd) < CMDLEN){
 		memcpy(cmd+strlen(cmd), payload, len);
@@ -565,22 +716,26 @@ void process_data(void * payload, uint16_t len){
 	if(p!=NULL){
 		Serial_println("new line!");
 		p[0] = 0;
-		unsigned int freq = 0;
-		unsigned int amp = 0;
-		int count = sscanf(cmd, "singletone %u %u", &freq, &amp);
-		char arr[255];
-		sprintf(arr, "%d: SINGLE %d %d", count, freq, amp);
-		Serial_print(arr);
-		memset(cmd, 0, CMDLEN);
-		if(count > 0){
-			if(freq < 500 && freq > 0){
-				SingleProfileFreqOut(freq*1000000, 0);
-			}else{
-				Serial_println("Invalid frequency. Should be between 1 and 500");
-			}
+		if(memcmp(cmd, "profile ", strlen("profile "))==0){
+			exec_profile(cmd+strlen("profile "));
+		}else if(memcmp(cmd, "setprofile ", strlen("setprofile "))==0){
+			exec_setprofile(cmd+strlen("setprofile "));
+		}else if(memcmp(cmd, "sweep ", strlen("sweep "))==0){
+			exec_sweep(cmd+strlen("sweep "));
+		}else if(memcmp(cmd, "drhold ", strlen("drhold "))==0){
+			exec_drhold(cmd+strlen("drhold "));
+		}else if(memcmp(cmd, "drctrl ", strlen("drctrl "))==0){
+			exec_drctrl(cmd+strlen("drctrl "));
+		}else if(memcmp(cmd, "pwr ", strlen("pwr "))==0){
+			exec_pwr(cmd+strlen("pwr "));
+		}else if(memcmp(cmd, "txen ", strlen("txen "))==0){
+			exec_txen(cmd+strlen("txen "));
+		}else if(memcmp(cmd, "amplitude ", strlen("amplitude "))==0){
+			exec_amplitude(cmd+strlen("amplitude "));
 		}else{
 			Serial_println("Invalid command");
 		}
+		memset(cmd, 0, CMDLEN);
 	}
 }
 /* USER CODE END 4 */
@@ -594,10 +749,9 @@ void process_data(void * payload, uint16_t len){
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
-	memset(cmd, 0, CMDLEN);
-	/* init code for LWIP */
-	MX_LWIP_Init();
-	/* USER CODE BEGIN 5 */
+  /* init code for LWIP */
+  MX_LWIP_Init();
+  /* USER CODE BEGIN 5 */
 
 	Serial_println("\r\nHello world!");
 	extern struct netif gnetif;
@@ -622,15 +776,27 @@ void StartDefaultTask(void const * argument)
 	// DDS_Init(INIT_PLL, INIT_DIV, INIT_REFCLK);
 	DDS_Init(true, false, 50000000);
 
+	// set amplitude
+	GPIO_WritePin(DDS_D0_GPIO_PORT, DDS_D0_PIN, 1);
+	GPIO_WritePin(DDS_D1_GPIO_PORT, DDS_D1_PIN, 1);
+	GPIO_WritePin(DDS_D2_GPIO_PORT, DDS_D2_PIN, 1);
+	GPIO_WritePin(DDS_D3_GPIO_PORT, DDS_D3_PIN, 1);
+	GPIO_WritePin(DDS_D4_GPIO_PORT, DDS_D4_PIN, 1);
+	GPIO_WritePin(DDS_D5_GPIO_PORT, DDS_D5_PIN, 1);
+	GPIO_WritePin(DDS_D6_GPIO_PORT, DDS_D6_PIN, 1);
+	GPIO_WritePin(DDS_D7_GPIO_PORT, DDS_D7_PIN, 1);
+	GPIO_WritePin(DDS_D8_GPIO_PORT, DDS_D8_PIN, 1);
+	GPIO_WritePin(DDS_D9_GPIO_PORT, DDS_D9_PIN, 1);
+	GPIO_WritePin(DDS_D10_GPIO_PORT, DDS_D10_PIN, 1);
+	GPIO_WritePin(DDS_D11_GPIO_PORT, DDS_D11_PIN, 1);
+	GPIO_WritePin(DDS_D12_GPIO_PORT, DDS_D12_PIN, 1);
+	GPIO_WritePin(DDS_D13_GPIO_PORT, DDS_D13_PIN, 1);
+	GPIO_WritePin(DDS_D14_GPIO_PORT, DDS_D14_PIN, 1);
+	GPIO_WritePin(DDS_D15_GPIO_PORT, DDS_D15_PIN, 1);
+
+
 	// single-tone
-	SingleProfileFreqOut(1000000L, INIT_A * -1);
-	// TODO: profiles
-	// TODO: auto frequency sweep with DRG
-	// TODO: DRHOLD
-	// TODO: sweep with DRCTRL
-	// TODO: external io_update
-	// TODO: amplitude modulation with parallel port
-	// TODO: output on/off
+	SingleProfileFreqOut(1000000L, INIT_A * -1, 0);
 	echo_init();
 
 
